@@ -1,0 +1,13 @@
+# Unpinned during the build. Freeze before submission so judges get a
+# reproducible install:  pip freeze > requirements.lock.txt
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-multipart
+httpx
+
+google-adk
+google-genai
+google-cloud-firestore
+google-cloud-storage
