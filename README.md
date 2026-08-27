@@ -124,6 +124,23 @@ There is no PDF text-extraction layer. Gemini reads dropped PDFs directly, which
 avoids two-column layouts and inline math — where this kind of project usually dies.
 Spoken answers likewise go straight to Gemini, with no transcription step.
 
+## Ingest
+
+Sectioning never asks the model to reproduce the paper. Gemini returns only the
+structure — section numbers, titles, the concepts each one assumes, and a short
+verbatim anchor phrase per section — and the prose is sliced locally by matching
+those anchors against the source text.
+
+Two things follow. Ingest costs the same on a 40-page paper as on a 6-page one,
+because output length is bounded by the number of sections rather than the length
+of the paper. And the reader sees the author's words, since no sentence is ever
+routed through the model's output.
+
+Anchors are matched on whitespace-normalised text, because extracted PDFs break
+lines mid-sentence. A section whose anchor cannot be located is dropped rather
+than stored empty: an unreadable section in the queue is worse than one that was
+never offered.
+
 ## Setup
 
 ### Prerequisites
@@ -233,6 +250,8 @@ npm run dev                 # http://localhost:5173, proxies /api to :8080
 | --- | --- |
 | `GET /queue?limit&cursor` | Papers ordered by distance from your frontier |
 | `GET /graph?kingdom_id&limit` | Nodes and edges for the map |
+| `POST /papers/arxiv` | Ingest an arXiv id or link; prepares in the background |
+| `POST /papers/pdf` | Ingest a dropped PDF; prepares in the background |
 | `GET /papers/{id}` | Paper metadata and section index |
 | `GET /papers/{id}/sections/{id}` | Section prose |
 | `GET /misconceptions?due_only` | Open misconceptions, or those due for retest |
@@ -276,7 +295,7 @@ Built:
 - [x] Reasoning-based understanding assessment with tracked, retested misconceptions
 - [x] Gap-ranked queue that stays flat as the library grows
 - [x] Graph API and navigable kingdom map with pan, zoom, search, and filtering
-- [ ] Ingest — arXiv via alphaXiv MCP, PDF via Gemini multimodal
+- [x] Ingest — arXiv via alphaXiv MCP, PDF via Gemini multimodal
 - [ ] Cartographer, Explainer, Examiner, Triage, Scout
 - [ ] Session state machine with suspend and resume
 - [ ] Reading pane

@@ -1,8 +1,16 @@
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from . import agents
+from . import agents, ingest
 from .config import settings
 from .schemas import (
     GraphView,
@@ -30,6 +38,12 @@ class ProbeRequest(BaseModel):
     concept_label: str
     section_title: str = ""
     section_excerpt: str = ""
+
+
+class ArxivRequest(BaseModel):
+    reference: str = Field(
+        description="arXiv id, abs link, or pdf link — all resolve to the same paper"
+    )
 
 
 class AssessRequest(BaseModel):
@@ -71,6 +85,37 @@ def graph(
 @app.get("/kingdoms", response_model=list[Kingdom])
 def kingdoms(store: GraphStore = Depends(get_store)) -> list[Kingdom]:
     return store.list_kingdoms()
+
+
+@app.post("/papers/arxiv", response_model=Paper, status_code=202)
+def add_arxiv_paper(
+    request: ArxivRequest,
+    background: BackgroundTasks,
+    store: GraphStore = Depends(get_store),
+) -> Paper:
+    """Accept the link and prepare in the background; poll the paper for status."""
+    try:
+        url = ingest.canonical_arxiv_url(request.reference)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    paper = ingest.stub_paper(store, "arxiv", url, url)
+    background.add_task(ingest.prepare_arxiv, store, paper.id)
+    return paper
+
+
+@app.post("/papers/pdf", response_model=Paper, status_code=202)
+async def add_pdf_paper(
+    background: BackgroundTasks,
+    pdf: UploadFile = File(...),
+    store: GraphStore = Depends(get_store),
+) -> Paper:
+    payload = await pdf.read()
+    if not payload:
+        raise HTTPException(status_code=400, detail="empty pdf upload")
+    name = pdf.filename or "dropped.pdf"
+    paper = ingest.stub_paper(store, "pdf", name, name)
+    background.add_task(ingest.prepare_pdf, store, paper.id, payload)
+    return paper
 
 
 @app.get("/papers/{paper_id}", response_model=Paper)

@@ -24,6 +24,8 @@ class Settings(BaseSettings):
 
     alphaxiv_mcp_url: str = "https://api.alphaxiv.org/mcp/v1"
     alphaxiv_api_key: str = ""
+    # Retrieval runs an agentic loop server-side, so it is slow by nature.
+    alphaxiv_timeout_seconds: int = 180
 
     # Retrieval prefilter only: above this, the graph plausibly holds material
     # for a concept and it is worth asking the reader about it. This threshold
